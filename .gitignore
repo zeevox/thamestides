@@ -1,0 +1,5 @@
+vendor/
+tides.db
+*.log
+__pycache__/
+
