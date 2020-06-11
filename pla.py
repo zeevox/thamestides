@@ -20,6 +20,7 @@ def fetch():
         children = row.find_all("td")
         tide_gauge_name = children[0].get_text().strip()
 
+        # High water and Low water
         hw, lw = (
             children[4].get_text().strip().split(" "),
             children[5].get_text().strip().split(" "),

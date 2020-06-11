@@ -51,7 +51,7 @@ if __name__ == "__main__":
                 print(f"tick {int(time())}")
                 DATA = pla.fetch()
                 if DATA is not None:
-                    for tide_gauge in DATA.keys():
+                    for tide_gauge in DATA:
                         init_gauge(DB_CONN, tide_gauge)
                         update(
                             DB_CONN,
