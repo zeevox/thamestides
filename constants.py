@@ -10,5 +10,5 @@ aod_diffs = {
     "Charlton": 3.35,
     "Tower": 3.2,
     "Chelsea": 2.44,
-    "Richmond": 0.61
+    "Richmond": 0.61,
 }
