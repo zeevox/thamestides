@@ -1,22 +1,27 @@
+import logging
 from datetime import datetime, timedelta
-import requests
+
 import pytz
+import requests
 from bs4 import BeautifulSoup
+
 from constants import AOD_DIFFS
 
 
 def fetch():
     get_time = pytz.utc.localize(datetime.utcnow())
     request = BeautifulSoup(
-        requests.get(
-            "https://www.pla.co.uk/hydrographics/ltoverview_table.cfm"
-        ).content,
+        requests.get("https://www.pla.co.uk/hydrographics/ltoverview_table.cfm").content,
         "html.parser",
     )
 
     output_pla = {}
 
-    for row in request.find("tbody").find_all("tr"):
+    tbody = request.find("tbody")
+    if tbody is None:
+        return None
+
+    for row in tbody.find_all("tr"):
         children = row.find_all("td")
         tide_gauge_name = children[0].get_text().strip()
 
@@ -59,9 +64,7 @@ def fetch():
             }
             output = {**output, **readings}  # merge the two dictionaries
         except ValueError:
-            print(
-                f"ERR: Could not parse gauge data, {tide_gauge_name} gauge is probably offline."
-            )
+            logging.warning(f"ERR: Could not parse gauge data, {tide_gauge_name} gauge is probably offline.")
             output["status"] = 0
         else:
             output["status"] = 1
