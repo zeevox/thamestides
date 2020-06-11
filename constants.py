@@ -1,6 +1,6 @@
 # to calculate the Ordnance Datum values we use these, they are hardcoded and constant
 # from the PLA Annual Tide Tables, p33: https://www.pla.co.uk/assets/PLA-Tide-Tables-2020.pdf
-aod_diffs = {
+AOD_DIFFS = {
     "Walton": 2.16,
     "Margate": 2.50,
     "Southend": 2.90,

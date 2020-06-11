@@ -1,8 +1,8 @@
+from datetime import datetime, timedelta
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-from constants import aod_diffs
+from constants import AOD_DIFFS
 
 
 def fetch():
@@ -65,19 +65,19 @@ def fetch():
         else:
             output["status"] = 1
 
-        if tide_gauge_name in aod_diffs:
+        if tide_gauge_name in AOD_DIFFS:
             aod_readings = {
                 "observed_aod": round(
-                    output["observed_cd"] - aod_diffs[tide_gauge_name], 2
+                    output["observed_cd"] - AOD_DIFFS[tide_gauge_name], 2
                 ),
                 "predicted_aod": round(
-                    output["predicted_cd"] - aod_diffs[tide_gauge_name], 2
+                    output["predicted_cd"] - AOD_DIFFS[tide_gauge_name], 2
                 ),
                 "next_hw_aod": round(
-                    output["next_hw_cd"] - aod_diffs[tide_gauge_name], 2
+                    output["next_hw_cd"] - AOD_DIFFS[tide_gauge_name], 2
                 ),
                 "next_lw_aod": round(
-                    output["next_lw_cd"] - aod_diffs[tide_gauge_name], 2
+                    output["next_lw_cd"] - AOD_DIFFS[tide_gauge_name], 2
                 ),
             }
             output = {**output, **aod_readings}
