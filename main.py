@@ -9,7 +9,6 @@ VERBOSE = False
 
 def init(path):
     connection = None
-    cursor = None
     try:
         connection = sqlite3.connect(path)
         if VERBOSE:
@@ -20,8 +19,10 @@ def init(path):
 
 
 def init_gauge(conn, gauge_name):
-    sql_init_tide_gauge = f"CREATE TABLE IF NOT EXISTS {gauge_name} " \
-                          f"(time integer PRIMARY KEY, observed_cd integer NOT NULL, predicted_cd integer NOT NULL);"
+    sql_init_tide_gauge = (
+        f"CREATE TABLE IF NOT EXISTS {gauge_name} "
+        f"(time integer PRIMARY KEY, observed_cd integer NOT NULL, predicted_cd integer NOT NULL);"
+    )
     conn.cursor().execute(sql_init_tide_gauge)
     conn.commit()
     if VERBOSE:
@@ -29,35 +30,45 @@ def init_gauge(conn, gauge_name):
 
 
 def update(conn, gauge_name, timestamp, observed_cd, predicted_cd):
-    conn.cursor().execute(f"INSERT INTO {gauge_name} VALUES(?,?,?)", (timestamp, observed_cd, predicted_cd))
+    conn.cursor().execute(
+        f"INSERT INTO {gauge_name} VALUES(?,?,?)",
+        (timestamp, observed_cd, predicted_cd),
+    )
     conn.commit()
     if VERBOSE:
-        print(f"Saved new values for {gauge_name} as of {timestamp}: {observed_cd}, {predicted_cd}")
+        print(
+            f"Saved new values for {gauge_name} as of {timestamp}: {observed_cd}, {predicted_cd}"
+        )
 
 
-if __name__ == '__main__':
-    db_conn = init(DB_NAME)
+if __name__ == "__main__":
+    DB_CONN = init(DB_NAME)
 
-    start = time()
-    if db_conn is not None:
+    START = time()
+    if DB_CONN is not None:
         try:
             while True:
                 print(f"tick {int(time())}")
                 data = pla.fetch()
                 if data is not None:
-                    for tide_gauge in data.keys():
-                        init_gauge(db_conn, tide_gauge)
-                        update(db_conn,
-                               tide_gauge,
-                               int(data[tide_gauge]["time"]),
-                               int(data[tide_gauge]["observed_cd"] * 100),  # store values in cm to keep them as ints
-                               int(data[tide_gauge]["predicted_cd"] * 100)
-                               )
-                sleep(60.0 - ((time() - start) % 60.0))  # tide gauges update every 60s
+                    for tide_gauge in data:
+                        init_gauge(DB_CONN, tide_gauge)
+                        update(
+                            DB_CONN,
+                            tide_gauge,
+                            int(data[tide_gauge]["time"]),
+                            int(
+                                data[tide_gauge]["observed_cd"] * 100
+                            ),  # store values in cm to keep them as ints
+                            int(data[tide_gauge]["predicted_cd"] * 100),
+                        )
+                sleep(60.0 - ((time() - START) % 60.0))  # tide gauges update every 60s
         except (KeyboardInterrupt, SystemExit, Exception):
             pass
         finally:
-            db_conn.commit()
-            db_conn.close()
+            DB_CONN.commit()
+            DB_CONN.close()
     else:
-        print("An error occurred initialising the connection to the database. Please try again.")
+        print(
+            "An error occurred initialising the connection to the database. Please try again."
+        )
