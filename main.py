@@ -49,18 +49,18 @@ if __name__ == "__main__":
         try:
             while True:
                 print(f"tick {int(time())}")
-                DATA = pla.fetch()
-                if DATA is not None:
-                    for tide_gauge in DATA:
+                data = pla.fetch()
+                if data is not None:
+                    for tide_gauge in data:
                         init_gauge(DB_CONN, tide_gauge)
                         update(
                             DB_CONN,
                             tide_gauge,
-                            int(DATA[tide_gauge]["time"]),
+                            int(data[tide_gauge]["time"]),
                             int(
-                                DATA[tide_gauge]["observed_cd"] * 100
+                                data[tide_gauge]["observed_cd"] * 100
                             ),  # store values in cm to keep them as ints
-                            int(DATA[tide_gauge]["predicted_cd"] * 100),
+                            int(data[tide_gauge]["predicted_cd"] * 100),
                         )
                 sleep(60.0 - ((time() - START) % 60.0))  # tide gauges update every 60s
         except (KeyboardInterrupt, SystemExit, Exception):
