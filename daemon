@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+if ! [ -x "$(command -v supervisorctl)" ]; then
+  echo "Error: supervisor is not installed." >&2
+  echo "Install it using \`sudo apt install supervisor\`"
+  exit 1
+fi
+
+function enable() {
+  echo "
+  [program:thamestides]
+  directory=$(pwd)
+  command=/usr/bin/python3.8 $(pwd)/main.py -o $(pwd)/thamestides.log
+  autostart=true
+  autorestart=true
+  stderr_logfile=$(pwd)/thamestides.log
+  stdout_logfile=$(pwd)/thamestides.log
+  " > ./thamestides.conf
+
+  sudo ln -s "$(pwd)/thamestides.conf" "/etc/supervisor/conf.d/"
+  sudo supervisorctl reread
+  sudo supervisorctl update
+
+  echo "ThamesTides supervisor script installed successfully."
+  echo "Re-run this script if you change this directory's name or location."
+}
+
+function disable() {
+  sudo rm "/etc/supervisor/conf.d/thamestides.conf"
+  sudo supervisorctl reread
+  sudo supervisorctl update
+  rm ./thamestides.conf
+
+  echo "ThamesTides supervisor script uninstalled successfully."
+}
+
+case "$1" in
+  enable)
+    enable
+    ;;
+  disable)
+    disable
+    ;;
+  status)
+    sudo supervisorctl status thamestides
+    ;;
+  start)
+    sudo supervisorctl start thamestides
+    ;;
+  stop)
+    sudo supervisorctl stop thamestides
+    ;;
+  restart)
+    sudo supervisorctl restart thamestides
+    ;;
+  *)
+    echo $"Usage: $0 {enable|disable|status|start|stop|restart}"
+    exit 1
+esac

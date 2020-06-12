@@ -299,3 +299,4 @@ $RECYCLE.BIN/
 vendor/
 thamestides.db
 thamestides.log
+thamestides.conf
