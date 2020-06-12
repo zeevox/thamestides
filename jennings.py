@@ -1,28 +1,17 @@
+import logging
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-import pytz
 import requests
 from bs4 import BeautifulSoup
 
+import timeutils
 from constants import JENNINGS_CODES, AOD_DIFFS
-
-
-# Convert HH:MM London time into a UTC Unix timestamp
-def time_to_unix_utc(get_time, time_string):
-    # get today's date
-    date = get_time.date()
-    # the time of the tide turning point
-    time = datetime.strptime(time_string, "%H:%M").time()
-    # combine the two, using London's timezone (GMT in winter, BST in summer)
-    combined = pytz.timezone("Europe/London").localize(datetime.combine(date, time))
-    # return a UTC Unix timestamp integer
-    return int(combined.astimezone(pytz.utc).strftime("%s"))
 
 
 def fetch(startdate=0):
     output = {}
-    get_time = pytz.utc.localize(datetime.utcnow())
+    get_time = timeutils.utc_now()
 
     for station in JENNINGS_CODES:
         request = BeautifulSoup(
@@ -52,18 +41,19 @@ def fetch(startdate=0):
                 # sometimes (e.g. timestamp 1591192000) there will be a high tide one day and none the next, or
                 # another odd combination. So first we must check that there are values for that low or high tide
                 if children[1].strip() != '' and children[2].strip():
-                    output[station].append([time_to_unix_utc(get_time, children[1]),
+                    output[station].append([timeutils.time_to_unix_utc(get_time, children[1]),
                                             # Subtracting the height at Tower Pier / London Bridge gives us the AOD
                                             # height of the station. By adding the AOD delta for each station we get
                                             # the CD height for that location
                                             round(float(children[2]) - AOD_DIFFS["Tower"] + AOD_DIFFS[station], 2)])
                 if children[4].strip() != '' and children[5].strip():
                     # we add another day because the second column is for tomorrow's high tides
-                    output[station].append([time_to_unix_utc(get_time + timedelta(days=1), children[4]),
+                    output[station].append([timeutils.time_to_unix_utc(get_time + timedelta(days=1), children[4]),
                                             round(float(children[5]) - AOD_DIFFS["Tower"] + AOD_DIFFS[station], 2)])
         # sort by the timestamp of each turning point, for easy debugging and the prettiness factor
         output[station] = sorted(output[station], key=lambda x: x[0])
 
+    logging.info("Fetched and processed tide time predictions from thamestides.org.uk")
     return output
 
 

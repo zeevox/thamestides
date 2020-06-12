@@ -6,6 +6,7 @@ from apscheduler.schedulers.background import BlockingScheduler
 
 import jennings
 import pla
+import ukho
 from constants import DB_NAME
 
 
@@ -68,31 +69,34 @@ def update_pla():
     database.close()
 
 
-def update_jennings():
+def update_daily_predictions():
     database = connect(DB_NAME)
     if database is None:
         logging.error("Could not initialise a connection to the database.")
         return
 
     jennings_data = jennings.fetch()
-    if jennings_data is not None:
-        logging.info("Fetched tide time predictions from thamestides.org.uk")
+    ukho_data = ukho.fetch()
 
-        database.cursor().execute("CREATE TABLE IF NOT EXISTS predictions (time integer PRIMARY KEY);")
+    # in dictionaries later values will always override earlier ones (PEP 0448)
+    # we prefer the accuracy of Richard Jennings' data over the UK Hydrographic Office
+    fetched_data = {**ukho_data, **jennings_data}
 
-        for station_name in jennings_data:
-            try:
-                database.cursor().execute(f"ALTER TABLE predictions ADD COLUMN {station_name} real;")
-            except sqlite3.OperationalError:  # thrown if the column exists already, simply ignore
-                pass
+    database.cursor().execute("CREATE TABLE IF NOT EXISTS predictions (time integer PRIMARY KEY);")
 
-            for turning_point in jennings_data[station_name]:
-                timestamp, predicted_cd = turning_point
-                database.cursor().execute("INSERT OR IGNORE INTO predictions(time) VALUES(?)", (int(timestamp),))
-                database.cursor().execute(
-                    f"UPDATE predictions SET {station_name} = ? WHERE time = ?",
-                    (predicted_cd, int(timestamp))
-                )
+    for station_name in fetched_data:
+        try:
+            database.cursor().execute(f"ALTER TABLE predictions ADD COLUMN {station_name} real;")
+        except sqlite3.OperationalError:  # thrown if the column exists already, simply ignore
+            pass
+
+        for turning_point in fetched_data[station_name]:
+            timestamp, predicted_cd = turning_point
+            database.cursor().execute("INSERT OR IGNORE INTO predictions(time) VALUES(?)", (int(timestamp),))
+            database.cursor().execute(
+                f"UPDATE predictions SET {station_name} = ? WHERE time = ?",
+                (predicted_cd, int(timestamp))
+            )
 
     database.commit()
     database.close()
@@ -113,13 +117,13 @@ if __name__ == "__main__":
     else:
         logging.basicConfig(level=numeric_level)
 
-    # one-off run of jennings because it is scheduled for once a day
-    update_jennings()
+    # one-off run because it is scheduled for once a day; otherwise it will not record today's values
+    update_daily_predictions()
 
     scheduler = BlockingScheduler()
 
     scheduler.add_job(update_pla, 'cron', second=0)
-    scheduler.add_job(update_jennings, 'cron', hour=0)
+    scheduler.add_job(update_daily_predictions, 'cron', hour=0)
 
     try:
         scheduler.start()

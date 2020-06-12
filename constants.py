@@ -39,3 +39,18 @@ JENNINGS_CODES = {
     "Brentford": "BRE",
     # "Richmond": "RIC",  # Provided by PLA to greater degree of accuracy
 }
+
+UKHO_CODES = {
+    "Southend": "0110",
+    "Thameshaven": "0110A",
+    "Tilbury": "0111",
+    "Gravesend": "0111A",
+    "Erith": "0111B",
+    "Charlton": "0112",
+    "Tower": "0113",
+    "Chelsea": "0113A",
+    "Albert": "0114",
+    "Hammersmith": "0115",
+    "Kew": "0115A",
+    "Richmond": "0116",
+}
