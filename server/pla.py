@@ -64,27 +64,17 @@ def fetch():
             }
             output = {**output, **readings}  # merge the two dictionaries
         except ValueError:
-            logging.warning(f"ERR: Could not parse gauge data, {tide_gauge_name} gauge is probably offline.")
-            output["status"] = 0
+            logging.warning(f"ERR: Could not parse gauge data as of {get_time},"
+                            f" {tide_gauge_name} gauge is probably offline.")
         else:
-            output["status"] = 1
-
-        if tide_gauge_name in AOD_DIFFS:
-            aod_readings = {
-                "observed_aod": round(
-                    output["observed_cd"] - AOD_DIFFS[tide_gauge_name], 2
-                ),
-                "predicted_aod": round(
-                    output["predicted_cd"] - AOD_DIFFS[tide_gauge_name], 2
-                ),
-                "next_hw_aod": round(
-                    output["next_hw_cd"] - AOD_DIFFS[tide_gauge_name], 2
-                ),
-                "next_lw_aod": round(
-                    output["next_lw_cd"] - AOD_DIFFS[tide_gauge_name], 2
-                ),
-            }
-            output = {**output, **aod_readings}
+            if tide_gauge_name in AOD_DIFFS:
+                aod_readings = {
+                    "observed_aod": round(output["observed_cd"] - AOD_DIFFS[tide_gauge_name], 2),
+                    "predicted_aod": round(output["predicted_cd"] - AOD_DIFFS[tide_gauge_name], 2),
+                    "next_hw_aod": round(output["next_hw_cd"] - AOD_DIFFS[tide_gauge_name], 2),
+                    "next_lw_aod": round(output["next_lw_cd"] - AOD_DIFFS[tide_gauge_name], 2),
+                }
+                output = {**output, **aod_readings}
 
         output_pla[tide_gauge_name] = output
     return output_pla

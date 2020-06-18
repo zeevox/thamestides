@@ -10,7 +10,7 @@ function enable() {
   echo "
   [program:thamestides]
   directory=$(pwd)
-  command=/usr/bin/python3.8 $(pwd)/main.py -o $(pwd)/thamestides.log
+  command=/usr/bin/python3.8 $(pwd)/server/main.py -o $(pwd)/thamestides.log
   autostart=true
   autorestart=true
   stderr_logfile=$(pwd)/thamestides.log
@@ -53,7 +53,10 @@ case "$1" in
   restart)
     sudo supervisorctl restart thamestides
     ;;
+  log)
+    less +G thamestides.log
+    ;;
   *)
-    echo $"Usage: $0 {enable|disable|status|start|stop|restart}"
+    echo $"Usage: $0 {enable|disable|status|log|start|stop|restart}"
     exit 1
 esac

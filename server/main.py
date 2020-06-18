@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os.path
 import sqlite3
 
 from apscheduler.schedulers.background import BlockingScheduler
@@ -10,13 +11,15 @@ import ukho
 from constants import DB_NAME
 
 
-def connect(path):
+def connect(db_name):
+    # convoluted but safe way of getting a reference to the database in the parent directory
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), db_name)
     database = None
     try:
         database = sqlite3.connect(path)
         logging.info(f"Connection to SQLite database {path} successful")
         database.set_trace_callback(logging.debug)
-        logging.debug(f"Enabled logging of SQL queries for {path}")
+        logging.debug(f"Enabled logging of SQL queries for {db_name}")
     except sqlite3.Error as e:
         print(e)
     return database
@@ -45,24 +48,26 @@ def update_pla():
             except sqlite3.OperationalError:  # thrown if the column exists already, simply ignore
                 pass
 
-            timestamp = int(pla_data[station_name]["time"])
-            observed_cd = pla_data[station_name]["observed_cd"]
-            predicted_cd = pla_data[station_name]["predicted_cd"]
+            timestamp = int(pla_data[station_name].get("time", "error"))
+            observed_cd = pla_data[station_name].get("observed_cd", "error")
+            predicted_cd = pla_data[station_name].get("predicted_cd", "error")
 
-            database.cursor().execute("INSERT OR IGNORE INTO readings(time) VALUES(?)", (int(timestamp),))
-            database.cursor().execute(
-                f"UPDATE readings SET {station_name} = ? WHERE time = ?",
-                (observed_cd, timestamp),
-            )
+            # if the gauge is offline then there will be no observed_cd or predicted_cd keys, so nothing to save
+            if timestamp != "error" and observed_cd != "error" and predicted_cd != "error":
+                database.cursor().execute("INSERT OR IGNORE INTO readings(time) VALUES(?)", (int(timestamp),))
+                database.cursor().execute(
+                    f"UPDATE readings SET {station_name} = ? WHERE time = ?",
+                    (observed_cd, timestamp),
+                )
 
-            database.cursor().execute("INSERT OR IGNORE INTO predictions(time) VALUES(?)", (int(timestamp),))
-            database.cursor().execute(
-                f"UPDATE predictions SET {station_name} = ? WHERE time = ?",
-                (predicted_cd, timestamp),
-            )
+                database.cursor().execute("INSERT OR IGNORE INTO predictions(time) VALUES(?)", (int(timestamp),))
+                database.cursor().execute(
+                    f"UPDATE predictions SET {station_name} = ? WHERE time = ?",
+                    (predicted_cd, timestamp),
+                )
 
-            database.commit()
-            logging.debug(f"Saved new values for {station_name} as of {timestamp}: {observed_cd}, {predicted_cd}")
+                database.commit()
+                logging.debug(f"Saved new values for {station_name} as of {timestamp}: {observed_cd}, {predicted_cd}")
 
     # save our changes and close connection to the database
     database.commit()
