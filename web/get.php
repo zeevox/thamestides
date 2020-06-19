@@ -37,7 +37,7 @@ if (sizeof($_GET) == 0) {
 $get_predictions = isset($_GET["predictions"]);
 $get_readings = isset($_GET["readings"]);
 
-if ($get_predictions or $get_readings) {
+if ($get_predictions || $get_readings) {
     // you can use the `stations` parameter with a comma-separated list (no spaces)
     if (isset($_GET["stations"])) {
         if ($_GET["stations"] == "all") {
@@ -67,9 +67,9 @@ if ($get_predictions or $get_readings) {
     if (!is_null($column_names)) {
         foreach ($column_names as $column_name) {
             // verify that the submitted station names are valid
-            $valid_reading_station = in_array($column_name, $readings) and $get_readings;
-            $valid_prediction_station = in_array($column_name, $predictions) and $get_predictions;
-            if (!$valid_reading_station and !$valid_prediction_station) error("Invalid station name: $column_name", 400);
+            $valid_reading_station = in_array($column_name, $readings) && $get_readings;
+            $valid_prediction_station = in_array($column_name, $predictions) && $get_predictions;
+            if (!$valid_reading_station && !$valid_prediction_station) error("Invalid station name: $column_name", 400);
 
             if ($valid_reading_station) {
                 $readings_result = array();
