@@ -1,0 +1,5 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="API" type="PhpWebAppRunConfigurationType" factoryName="PHP Web Application" server_name="Apache2 localhost" start_url="/thamestides/api/?readings&amp;predictions&amp;stations=all&amp;last_n=10">
+    <method v="2" />
+  </configuration>
+</component>

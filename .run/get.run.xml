@@ -1,5 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="get" type="PhpWebAppRunConfigurationType" factoryName="PHP Web Application" server_name="Apache2 localhost" start_url="/thamestides/web/get.php">
-    <method v="2" />
-  </configuration>
-</component>
