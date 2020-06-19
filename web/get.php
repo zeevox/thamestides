@@ -1,7 +1,9 @@
 <?php
 header('Content-Type: application/json');
 
-$start_time = microtime(true);
+date_default_timezone_set("UTC");
+
+$program_start_time = microtime(true);
 
 $db = new SQLite3("../thamestides.db", SQLITE3_OPEN_READONLY);
 
@@ -64,6 +66,21 @@ if ($get_predictions || $get_readings) {
         $last_n = 1;
     }
 
+    $end_time = intval(time());
+    $start_time = $end_time - (60 * 60 * 24);
+    $start_predictions = $end_time;
+    $end_predictions = $end_time + (60 * 60 * 24);
+    if (isset($_GET["start"]) && isset($_GET["end"])) {
+        $start_time = strtotime($_GET["start"]);
+        $end_time = strtotime($_GET["end"]);
+        $start_predictions = $start_time;
+        $end_predictions = $end_time;
+        if (!isset($_GET["last_n"])) $last_n = 1440;
+    } else if (isset($_GET["start"]) xor isset($_GET["end"])) {
+        error("Please set both `start` and `end` or neither", 400);
+    }
+
+
     if (!is_null($column_names)) {
         foreach ($column_names as $column_name) {
             // verify that the submitted station names are valid
@@ -75,10 +92,17 @@ if ($get_predictions || $get_readings) {
                 $readings_result = array();
 
                 // option to filter out null readings where the gauge was offline
-                if (isset($_GET["filter_non_null"])) $filter_non_null = "WHERE $column_name IS NOT NULL"; else $filter_non_null = "";
+                if (isset($_GET["filter_non_null"])) $filter_non_null = "WHERE $column_name IS NOT NULL"; else $filter_non_null = "WHERE ";
 
                 // The recommended way to do a SQLite3 query is to use a statement.
-                $statement_readings = $db->prepare("SELECT time, $column_name FROM readings $filter_non_null ORDER BY time DESC LIMIT $last_n");
+                $statement_readings = $db->prepare("
+                    SELECT time, $column_name
+                    FROM readings
+                    $filter_non_null time >= $start_time AND time <= $end_time
+                    ORDER BY time
+                    DESC
+                    LIMIT $last_n
+                ");
                 if ($statement_readings) {
                     $result = $statement_readings -> execute();
 
@@ -93,8 +117,10 @@ if ($get_predictions || $get_readings) {
                     // sort the output by timestamp
                     ksort($readings_result);
 
-                    // add this specific column's array to the final total output array
-                    $results[$column_name]["readings"] = $readings_result;
+                    if (!empty($readings_result)) {
+                        // add this specific column's array to the final total output array
+                        $results[$column_name]["readings"] = $readings_result;
+                    }
 
                     unset($readings_result);
                 } else {
@@ -105,11 +131,16 @@ if ($get_predictions || $get_readings) {
             if ($valid_prediction_station) {
                 $predictions_result = array();
 
-                // in order to filter for only future predictions
-                $timestamp = intval(time());
-
                 // The recommended way to do a SQLite3 query is to use a statement.
-                $statement_predictions = $db->prepare("SELECT time, $column_name FROM main.predictions WHERE time >= $timestamp AND $column_name IS NOT NULL ORDER BY time DESC LIMIT 2");
+                $statement_predictions = $db->prepare("
+                    SELECT time, $column_name
+                    FROM main.predictions
+                    WHERE time >= $start_predictions AND time <= $end_predictions
+                      AND $column_name IS NOT NULL
+                    ORDER BY time
+                    DESC
+                    LIMIT $last_n
+                ");
                 if ($statement_predictions) {
                     $result = $statement_predictions -> execute();
 
@@ -146,7 +177,7 @@ if ($get_predictions || $get_readings) {
 }
 
 // to see how long it took to gather the data
-$results["execution_time"] = microtime(true) - $start_time;
+$results["execution_time"] = microtime(true) - $program_start_time;
 $results["status_code"] = "200";
 
 echo json_encode($results, JSON_PRETTY_PRINT);
