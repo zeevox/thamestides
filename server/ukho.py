@@ -39,8 +39,8 @@ def fetch():
 
         if len(times) != len(heights):
             logging.error("Unequal number of tide heights and times from the UKHO")
-        for i in range(len(times)):
-            output[station_name].append([times[i], heights[i]])
+        for i, time in enumerate(times):
+            output[station_name].append([time, heights[i]])
 
         output[station_name].sort()
 

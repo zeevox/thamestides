@@ -128,7 +128,7 @@ if __name__ == "__main__":
     scheduler = BlockingScheduler()
 
     scheduler.add_job(update_pla, 'cron', second=0)
-    scheduler.add_job(update_daily_predictions, 'cron', hour=0)
+    scheduler.add_job(update_daily_predictions, 'cron', hour=12)
 
     try:
         scheduler.start()

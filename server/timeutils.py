@@ -4,7 +4,7 @@ import pytz
 
 
 def time_to_unix_utc(get_time, time_string, ts_tz="Europe/London"):
-    """Convert HH:MM London time into a UTC Unix timestamp"""
+    """Convert HH:MM London time into a UTC Unix timestamp."""
     # get today's date
     date = get_time.date()
     # the time of the tide turning point

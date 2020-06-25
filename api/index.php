@@ -32,33 +32,34 @@ function error(string $error_message, int $http_error_code) {
 
 $results = array();
 
-if (sizeof($_GET) == 0) {
+if (count(filter_input_array(INPUT_GET)) == 0) {
     error("No data was requested; check your url", 204);
 }
 
-$get_predictions = isset($_GET["predictions"]);
-$get_readings = isset($_GET["readings"]);
+$get_predictions = filter_has_var(INPUT_GET, "predictions");
+$get_readings = filter_has_var(INPUT_GET, "readings");
 
 if ($get_predictions || $get_readings) {
     // you can use the `stations` parameter with a comma-separated list (no spaces)
-    if (isset($_GET["stations"])) {
-        if ($_GET["stations"] == "all") {
+    if (filter_has_var(INPUT_GET, "stations")) {
+        $stations = filter_input(INPUT_GET, "stations");
+        if ($stations == "all") {
             // if we are requesting all the stations we take the two lists of valid stations, combine them and remove duplicates
             $column_names = array_unique(array_merge($readings, $predictions));
         } else {
             // otherwise we split the string into an array delimiting by comma
-            $column_names = explode(",", $_GET["stations"]);
+            $column_names = explode(",", $stations);
         }
     // or use the `station` parameter for a single tidal station
-    } else if (isset($_GET["station"])) {
-        $column_names = array(htmlspecialchars($_GET["station"]));
+    } else if (filter_has_var(INPUT_GET, "station")) {
+        $column_names = array(htmlspecialchars(filter_input(INPUT_GET, "station")));
     } else {
         error("No station name(s) included in request. If you are certain that you need all the stations, set `stations=all`", 400);
     }
 
     // number of measurements to retrieve from the database
-    if (isset($_GET["last_n"])) {
-        $last_n = intval($_GET["last_n"]); // if n is not an integer (e.g. string) this returns zero
+    if (filter_has_var(INPUT_GET, "last_n")) {
+        $last_n = (int) filter_input(INPUT_GET, "last_n"); // if n is not an integer (e.g. string) this returns zero
         // 1440 readings is one day's worth of minutely readings. Let's not overload the server. Filter by time or if absolutely necessary make individual requests.
         if ($last_n > 1440) error("Request received for $last_n readings. The maximum is 1440 readings per request.", 400);
         if (!($last_n > 0)) error("Invalid value for last_n: $last_n", 400);
@@ -66,22 +67,24 @@ if ($get_predictions || $get_readings) {
         $last_n = 1;
     }
 
-    $end_time = intval(time());
+    $end_time = (int) time();
     $start_time = $end_time - (60 * 60 * 24);
     $start_predictions = $end_time;
     $end_predictions = $end_time + (60 * 60 * 24);
-    if (isset($_GET["start"]) && isset($_GET["end"])) {
-        $start_time = strtotime($_GET["start"]);
-        $end_time = strtotime($_GET["end"]);
+    if (filter_has_var(INPUT_GET, "start")
+        && filter_has_var(INPUT_GET, "end")) {
+        $start_time = strtotime(filter_input(INPUT_GET, "start"));
+        $end_time = strtotime(filter_input(INPUT_GET, "end"));
         $start_predictions = $start_time;
         $end_predictions = $end_time;
-        if (!isset($_GET["last_n"])) $last_n = 1440;
-    } else if (isset($_GET["start"]) xor isset($_GET["end"])) {
+        if (!filter_has_var(INPUT_GET, "last_n")) $last_n = 1440;
+    } else if (filter_has_var(INPUT_GET, "start")
+        xor filter_has_var(INPUT_GET, "end")) {
         error("Please set both `start` and `end` or neither", 400);
     }
 
 
-    if (!is_null($column_names)) {
+    if (!(($column_names) === null)) {
         foreach ($column_names as $column_name) {
             // verify that the submitted station names are valid
             $valid_reading_station = in_array($column_name, $readings) && $get_readings;
@@ -92,7 +95,8 @@ if ($get_predictions || $get_readings) {
                 $readings_result = array();
 
                 // option to filter out null readings where the gauge was offline
-                if (isset($_GET["filter_non_null"])) $filter_non_null = "WHERE $column_name IS NOT NULL"; else $filter_non_null = "WHERE ";
+                if (filter_has_var(INPUT_GET, "filter_non_null"))
+                    $filter_non_null = "WHERE $column_name IS NOT NULL"; else $filter_non_null = "WHERE ";
 
                 // The recommended way to do a SQLite3 query is to use a statement.
                 $statement_readings = $db->prepare("
@@ -103,6 +107,7 @@ if ($get_predictions || $get_readings) {
                     DESC
                     LIMIT $last_n
                 ");
+
                 if ($statement_readings) {
                     $result = $statement_readings -> execute();
 
@@ -180,6 +185,6 @@ if ($get_predictions || $get_readings) {
 $results["execution_time"] = microtime(true) - $program_start_time;
 $results["status_code"] = "200";
 
-echo json_encode($results, JSON_PRETTY_PRINT);
+print_r(json_encode((object) $results, JSON_PRETTY_PRINT));
 
 ?>
