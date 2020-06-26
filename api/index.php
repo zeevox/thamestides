@@ -1,39 +1,94 @@
 <?php
-header('Content-Type: application/json');
 
+/**
+ * Output a JSON response and exit the program
+ *
+ * @param int $code the HTTP response code of the program
+ * @param $results array|string array with the response data OR string with an error message
+ */
+function output(int $code, $results) {
+    // Remove any existing HTTP headers
+    header_remove();
+
+    // Set the actual response code
+    http_response_code($code);
+
+    // Enable caching for up to a minute
+    header("Cache-Control: no-transform,public,max-age=60,s-maxage=60");
+
+    // Inform that this is JSON
+    header('Content-Type: application/json');
+
+    // Set the status to reflect the HTTP response code
+    $status = array(
+        200 => '200 OK',
+        204 => '206 Partial Content',
+        400 => '400 Bad Request',
+        422 => '422 Unprocessable Entity',
+        500 => '500 Internal Server Error',
+        503 => '503 Service Unavailable',
+    );
+    header('Status: '.$status[$code]);
+
+    // If the "result" that has been passed is a single string, i.e. error message, wrap it
+    if (is_string($results)) $results = array("message" => $results);
+
+    // Add the status code to the response content itself
+    $results["status_code"] = $code;
+
+    // If there has been an error, output the received input for debugging purposes
+    if ($code != 200) $results["input"] = filter_input_array(INPUT_GET);
+
+    // Pretty print the output
+    print_r(json_encode((object) $results, JSON_PRETTY_PRINT));
+
+    // Do not run any further
+    exit();
+}
+
+/**
+ * Query the database to get a list of valid station names to prevent SQL injection
+ *
+ * @param $db SQLite3 database to fetch column names from
+ * @param string $table_name the name of the table to search within
+ * @return array list of valid station names
+ */
+function get_valid_stations($db, string $table_name) {
+    $valid_stations = array();
+    $query = $db->query("PRAGMA table_info($table_name);");
+
+    // each call to fetchArray() returns an array of a single row of the output
+    // so to get all the rows that the query fetched, we keep calling fetchArray() until it no longer returns an array
+    while ($table_name = $query->fetchArray(SQLITE3_ASSOC)) { $valid_stations[] = $table_name['name']; }
+
+    // we make the assumption here that the first column in the database must be the timestamp primary key
+    // it is a valid column, but not a valid station name, so we remove it from the list of valid station names
+    unset($valid_stations[0]);
+
+    return $valid_stations;
+}
+
+// operating in UTC is the easiest way to avoid timezone confusion
+// plus the database stores the Unix timestamps in UTC
 date_default_timezone_set("UTC");
 
 $program_start_time = microtime(true);
 
-$db = new SQLite3("../thamestides.db", SQLITE3_OPEN_READONLY);
+// the database is located in the root project folder, thus go up a level to access it
+define("DB_NAME", "../thamestides.db");
 
-// get valid column names for predictions (prevent SQL injection)
-$predictions = array();
-$predictions_query = $db->query("PRAGMA table_info(predictions);");
-while ($table = $predictions_query->fetchArray(SQLITE3_ASSOC)) { $predictions[] = $table['name']; }
-unset($predictions[0]); // time is our primary column but it is not a station!
+// instantiate a read-only connection to the database, both for safety's sake
+// and because we do not plan on writing anything into it
+$db = new SQLite3(DB_NAME, SQLITE3_OPEN_READONLY);
 
-// get valid column names for readings (prevent SQL injection)
-$readings = array();
-$readings_query = $db->query("PRAGMA table_info(readings);");
-while ($table = $readings_query->fetchArray(SQLITE3_ASSOC)) { $readings[] = $table['name']; }
-unset($readings[0]); // time is our primary column but it is not a station!
+$predictions = get_valid_stations($db, "predictions");
+$readings = get_valid_stations($db, "readings");
 
-function error(string $error_message, int $http_error_code) {
-    http_response_code($http_error_code);
-    $error = array(
-        "status_code" => $http_error_code,
-        "message" => $error_message,
-        "input" => $_GET,
-    );
-    echo json_encode($error, JSON_PRETTY_PRINT);
-    exit;
-}
-
+// Instantiate an empty results array into which we place the fetched data
 $results = array();
 
 if (count(filter_input_array(INPUT_GET)) == 0) {
-    error("No data was requested; check your url", 204);
+    output(206, "No data was requested; check your url");
 }
 
 $get_predictions = filter_has_var(INPUT_GET, "predictions");
@@ -54,15 +109,15 @@ if ($get_predictions || $get_readings) {
     } else if (filter_has_var(INPUT_GET, "station")) {
         $column_names = array(htmlspecialchars(filter_input(INPUT_GET, "station")));
     } else {
-        error("No station name(s) included in request. If you are certain that you need all the stations, set `stations=all`", 400);
+        output(400, "No station name(s) included in request. If you are certain that you need all the stations, set `stations=all`");
     }
 
     // number of measurements to retrieve from the database
     if (filter_has_var(INPUT_GET, "last_n")) {
         $last_n = (int) filter_input(INPUT_GET, "last_n"); // if n is not an integer (e.g. string) this returns zero
         // 1440 readings is one day's worth of minutely readings. Let's not overload the server. Filter by time or if absolutely necessary make individual requests.
-        if ($last_n > 1440) error("Request received for $last_n readings. The maximum is 1440 readings per request.", 400);
-        if (!($last_n > 0)) error("Invalid value for last_n: $last_n", 400);
+        if ($last_n > 1440) output(422, "Request received for $last_n readings. The maximum is 1440 readings per request.");
+        if (!($last_n > 0)) output(422, "Invalid value for last_n: $last_n");
     } else {
         $last_n = 1;
     }
@@ -80,7 +135,7 @@ if ($get_predictions || $get_readings) {
         if (!filter_has_var(INPUT_GET, "last_n")) $last_n = 1440;
     } else if (filter_has_var(INPUT_GET, "start")
         xor filter_has_var(INPUT_GET, "end")) {
-        error("Please set both `start` and `end` or neither", 400);
+        output(422, "Please set both `start` and `end` or neither");
     }
 
 
@@ -89,7 +144,7 @@ if ($get_predictions || $get_readings) {
             // verify that the submitted station names are valid
             $valid_reading_station = in_array($column_name, $readings) && $get_readings;
             $valid_prediction_station = in_array($column_name, $predictions) && $get_predictions;
-            if (!$valid_reading_station && !$valid_prediction_station) error("Invalid station name: $column_name", 400);
+            if (!$valid_reading_station && !$valid_prediction_station) output(422, "Invalid station name: $column_name");
 
             if ($valid_reading_station) {
                 $readings_result = array();
@@ -129,7 +184,7 @@ if ($get_predictions || $get_readings) {
 
                     unset($readings_result);
                 } else {
-                    error("Error fetching readings for $column_name", 500);
+                    output(503, "Error fetching readings for $column_name");
                 }
             }
 
@@ -167,7 +222,7 @@ if ($get_predictions || $get_readings) {
 
                     unset($predictions_result);
                 } else {
-                    error("Error fetching predictions for $column_name", 500);
+                    output(503, "Error fetching predictions for $column_name");
                 }
             }
 
@@ -178,13 +233,12 @@ if ($get_predictions || $get_readings) {
     }
 
 } else {
-    error("Please select one of `predictions` or `readings`", 400);
+    output(400, "Please select one of `predictions` or `readings`");
 }
 
 // to see how long it took to gather the data
 $results["execution_time"] = microtime(true) - $program_start_time;
-$results["status_code"] = "200";
 
-print_r(json_encode((object) $results, JSON_PRETTY_PRINT));
+output(200, $results);
 
 ?>
